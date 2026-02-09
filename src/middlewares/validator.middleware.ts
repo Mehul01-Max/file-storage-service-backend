@@ -9,7 +9,7 @@ enum validationTarget {
 }
 
 const validate = (schema: ZodType, target:  validationTarget = validationTarget.Body) => {
-    (req: Request, _res: Response, next: NextFunction) => {
+    return (req: Request, _res: Response, next: NextFunction) => {
         try {
             const data = req[target];
             const result = schema.safeParse(data);
