@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
+  id            String         @id @default(uuid())
   email         String         @unique
   password_hash String
   name          String
@@ -19,33 +19,33 @@ model User {
 }
 
 model Files {
-  id            Int             @id @default(autoincrement())
+  id            String          @id @default(uuid())
   original_name String
   storage_key   String
   mime_type     String
   size          Int
   is_deleted    Boolean         @default(false)
   uploaded_at   DateTime        @default(now())
-  user_id       Int
+  user_id       String
   user          User            @relation(fields: [user_id], references: [id])
   fileVersions  File_Versions[]
   sharedFiles   Shared_Files[]
 }
 
 model Folders {
-  id               Int       @id @default(autoincrement())
+  id               String    @id @default(uuid())
   name             String
   created_at       DateTime  @default(now())
-  user_id          Int
+  user_id          String
   user             User      @relation(fields: [user_id], references: [id])
-  parent_folder_id Int?
+  parent_folder_id String?
   parent_folder    Folders?  @relation("FolderHierarchy", fields: [parent_folder_id], references: [id])
   subfolders       Folders[] @relation("FolderHierarchy")
 }
 
 model File_Versions {
-  id             Int      @id @default(autoincrement())
-  file_id        Int
+  id             String   @id @default(uuid())
+  file_id        String
   file           Files    @relation(fields: [file_id], references: [id])
   version_number Int
   storage_key    String
@@ -58,11 +58,11 @@ enum Permission {
 }
 
 model Shared_Files {
-  id               Int        @id @default(autoincrement())
+  id               String     @id @default(uuid())
   expires_at       DateTime   @default(now())
-  file_id          Int
+  file_id          String
   file             Files      @relation(fields: [file_id], references: [id])
-  user_id          Int
+  user_id          String
   shared_with_user User       @relation("SharedWithUser", fields: [user_id], references: [id])
   permission       Permission
 }
