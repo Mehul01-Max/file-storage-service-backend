@@ -1,6 +1,7 @@
 import type {Request, Response, NextFunction} from 'express'
 import ApiError from '../utils/ApiError.js';
 import { verifyToken } from '../utils/jwt.js';
+import type { UUID } from 'crypto';
 
 
 const authMiddleware = (req: Request, _res: Response, next: NextFunction) => {

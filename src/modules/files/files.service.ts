@@ -8,7 +8,7 @@ import { s3 } from '../../storage/s3.client.js';
 
 export const initUpload = async (user_id: UUID, original_name: string, mime_type: string, size: number, folder_id?: UUID) => {
     try {
-        const storage_key = `user-${user_id}/${Date.now()} - ${crypto.randomUUID()}`
+        const storage_key = `user-${user_id}/${Date.now()}-${crypto.randomUUID()}`
 
         const file = await prisma.files.create({
             data: {

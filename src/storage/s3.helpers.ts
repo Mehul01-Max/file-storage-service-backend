@@ -8,7 +8,7 @@ export const generateUploadUrl = async (key: string, mimeType: string) => {
     const command = new PutObjectCommand({
         Bucket: S3_BUCKET,
         Key: key,
-        ContentType: mimeType
+        // ContentType: mimeType
     });
 
     return await getSignedUrl(s3, command, { expiresIn: 60 * 5 });

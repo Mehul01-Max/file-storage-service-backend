@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import type { ZodType } from 'zod';
 import ApiError from '../utils/ApiError.js';
 
-enum validationTarget {
+export enum validationTarget {
     Params = "params",
     Body = "body",
     Query = "query"
@@ -13,7 +13,7 @@ const validate = (schema: ZodType, target:  validationTarget = validationTarget.
         try {
             const data = req[target];
             const result = schema.safeParse(data);
-
+            console.log(req);
             if (!result.success) {
                 const errors = result.error.issues.map((issue) => {
                     return {path: issue.path.join('.'), message: issue.message}
