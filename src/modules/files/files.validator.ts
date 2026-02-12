@@ -14,3 +14,8 @@ export const fileUploadCompleteSchema = z.object({
 export const fileDownloadSchema = z.object({
     file_id: z.uuid()
 })
+
+export const moveFileSchema = z.object({
+    file_id: z.uuid(),
+    new_folder_id: z.uuid().optional()
+})

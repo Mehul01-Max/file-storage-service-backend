@@ -1,7 +1,7 @@
 import type {Request, Response, NextFunction } from 'express'
 import * as fileService from './files.service.js'
 import { successReponse } from '../../utils/apiResponse.js'
-import type { UUID } from 'node:crypto'
+import ApiError from '../../utils/ApiError.js'
 
 export const initUpload = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -26,9 +26,47 @@ export const completeUpload = async (req: Request, res: Response, next: NextFunc
 export const download = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { file_id } = req.params;
-        const result = await fileService.download(file_id as UUID)
+        if (typeof file_id !== "string") {
+            throw new ApiError(400, "file_id should be of type uuid")
+        }
+        const result = await fileService.download(req.userId!, file_id)
         return successReponse(res, "file download started", result, 200);
     } catch (err) {
         next(err);
+    }
+}
+
+export const getFiles = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await fileService.getFiles(req.userId!);
+        return successReponse(res, "All files retrieved successfully", result, 200)
+    } catch (err) {
+        next(err)
+    }
+}
+
+export const deleteFile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { file_id } = req.params
+        if (typeof file_id !== "string") {
+            throw new ApiError(400, "file_id should be of type uuid")
+        }
+        const result = await fileService.deleteFile(req.userId!, file_id);
+        return successReponse(res, "file deleted successfully", result, 204)
+    } catch (err) {
+        next(err)
+    } 
+}
+
+export const moveFile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { file_id, new_folder_id } = req.params;
+        if (typeof file_id !== "string" || typeof new_folder_id !== "string") {
+            throw new ApiError(400, "file_id should be of type uuid");
+        }
+        const result = await fileService.moveFile(req.userId!, file_id, new_folder_id);
+        return successReponse(res, "file moved successfully", result, 200);
+    } catch (err) {
+        next(err)
     }
 }

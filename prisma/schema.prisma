@@ -22,6 +22,7 @@ enum FileStatus {
   UPLOADING
   UPLOADED
   FAILED
+  DELETED
 }
 
 model Files {
@@ -30,7 +31,6 @@ model Files {
   storage_key   String
   mime_type     String
   size          Int
-  is_deleted    Boolean         @default(false)
   uploaded_at   DateTime        @default(now())
   user_id       String
   user          User            @relation(fields: [user_id], references: [id])
@@ -42,15 +42,16 @@ model Files {
 }
 
 model Folders {
-  id               String    @id @default(uuid())
-  name             String
-  created_at       DateTime  @default(now())
-  user_id          String
-  user             User      @relation(fields: [user_id], references: [id])
-  parent_folder_id String?
-  parent_folder    Folders?  @relation("FolderHierarchy", fields: [parent_folder_id], references: [id])
-  subfolders       Folders[] @relation("FolderHierarchy")
-  files            Files[]   @relation("FilesWithInFolder")
+  id         String    @id @default(uuid())
+  name       String
+  created_at DateTime  @default(now())
+  user_id    String
+  user       User      @relation(fields: [user_id], references: [id])
+  parent_id  String?
+  parent     Folders?  @relation("FolderHierarchy", fields: [parent_id], references: [id])
+  children   Folders[] @relation("FolderHierarchy")
+  files      Files[]   @relation("FilesWithInFolder")
+  is_deleted Boolean   @default(false)
 }
 
 model File_Versions {
