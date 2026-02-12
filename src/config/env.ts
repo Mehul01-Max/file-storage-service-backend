@@ -4,3 +4,7 @@ dotenv.config();
 export const PORT = process.env.PORT;
 export const JWT_SECRET = process.env.JWT_SECRET;
 export const DATABASE_URL = process.env.DATABASE_URL;
+export const AWS_ACCESS_KEY = process.env.AWS_ACCESS_KEY!;
+export const AWS_SECRET_KEY = process.env.AWS_SECRET_KEY!;
+export const AWS_REGION = process.env.AWS_REGION!;
+export const S3_BUCKET = process.env.S3_BUCKET!;

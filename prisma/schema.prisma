@@ -18,6 +18,12 @@ model User {
   sharedFiles   Shared_Files[] @relation("SharedWithUser")
 }
 
+enum FileStatus {
+  UPLOADING
+  UPLOADED
+  FAILED
+}
+
 model Files {
   id            String          @id @default(uuid())
   original_name String
@@ -30,6 +36,9 @@ model Files {
   user          User            @relation(fields: [user_id], references: [id])
   fileVersions  File_Versions[]
   sharedFiles   Shared_Files[]
+  fileStatus    FileStatus      @default(UPLOADING)
+  folders       Folders?        @relation("FilesWithInFolder", fields: [folder_id], references: [id])
+  folder_id     String?
 }
 
 model Folders {
@@ -41,6 +50,7 @@ model Folders {
   parent_folder_id String?
   parent_folder    Folders?  @relation("FolderHierarchy", fields: [parent_folder_id], references: [id])
   subfolders       Folders[] @relation("FolderHierarchy")
+  files            Files[]   @relation("FilesWithInFolder")
 }
 
 model File_Versions {

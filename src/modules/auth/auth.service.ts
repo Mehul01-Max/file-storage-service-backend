@@ -5,50 +5,59 @@ import { generateToken } from '../../utils/jwt.js'
 
 
 export const register = async (email : string, password: string, name: string) => {
-    const existing = await prisma.user.findUnique({ where: { email }})
-    if (existing) {
-        throw new ApiError(400, "Email already in use");
-    }
-
-    const password_hash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-        data: {
-            email,
-            password_hash,
-            name
-        },
-        select: {
-            id: true,
-            email: true,
-            name: true,
-            created_at: true
+    try {
+        const existing = await prisma.user.findUnique({ where: { email }})
+        if (existing) {
+            throw new ApiError(400, "Email already in use");
         }
-    })
 
-    return user
+        const password_hash = await bcrypt.hash(password, 10);
+        const user = await prisma.user.create({
+            data: {
+                email,
+                password_hash,
+                name
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                created_at: true
+            }
+        })
+
+
+        return user
+    } catch (err) {
+        throw err;
+    }
 }
 
 export const login = async (email: string, password: string) => {
-    const user = await prisma.user.findUnique({where: {email}})
-    if (!user) {
-        throw new ApiError(401, "invalid credentials");
-    }
+    try {
+        const user = await prisma.user.findUnique({where: {email}})
+        if (!user) {
+            throw new ApiError(401, "invalid credentials");
+        }
 
-    const ok = bcrypt.compare(password, user.password_hash);
+        const ok = bcrypt.compare(password, user.password_hash);
 
-    if (!ok) {
-        throw new ApiError(401, "invalid credentials");
-    }
+        if (!ok) {
+            throw new ApiError(401, "invalid credentials");
+        }
 
-    const token = generateToken(user.id)
+        const token = generateToken(user.id)
 
-    return {
-        user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            created_at: user.created_at
-        },
-        token
+        return {
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                created_at: user.created_at
+            },
+            token
+        }
+    } catch (err) {
+        throw err;
     }
 }
