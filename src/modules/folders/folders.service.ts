@@ -31,7 +31,21 @@ export const createFolder = async (name: string, user_id: string, parent_id?: st
     return folder
 }   
 
-export const getFolder = async (user_id: string, folder_id: string) => {
+export const getFolder = async (user_id: string, folder_id: string | undefined) => {
+    if (!folder_id) {
+        const folders = await prisma.folders.findMany({
+            where: {user_id, is_deleted: false, parent_id: null}
+        });
+        const files = await prisma.files.findMany({
+            where: {user_id, fileStatus: "UPLOADED", folder_id: null}
+        })
+        return {
+            id: null,
+            name: "root",
+            children: folders,
+            files: files
+        };
+    }
     const folder = await prisma.folders.findFirst({
         where: {id: folder_id, user_id, is_deleted: false},
         include: {

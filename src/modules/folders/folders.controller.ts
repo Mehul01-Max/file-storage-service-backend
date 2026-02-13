@@ -16,7 +16,7 @@ export const createFolder = async (req: Request, res: Response, next: NextFuncti
 export const getFolder = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const {folder_id} = req.params;
-        if (typeof folder_id !== "string" ) {
+        if (typeof folder_id !== "string"  && typeof folder_id !== 'undefined') {
             throw new ApiError(400, "folder id should be of type uuid")
         }
         const result = await folderService.getFolder(req.userId!, folder_id);
@@ -39,7 +39,7 @@ export const renameFolder = async (req: Request, res: Response, next: NextFuncti
     try {
         const { name } = req.body;
         const { folder_id } = req.params
-        if (typeof folder_id !== "string" ) {
+        if (typeof folder_id !== "string") {
             throw new ApiError(400, "folder id should be of type uuid")
         }
         const result = await folderService.renameFolder(req.userId!, folder_id, name);

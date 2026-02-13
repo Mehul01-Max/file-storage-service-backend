@@ -9,6 +9,10 @@ export const folderIdSchema = z.object({
     folder_id: z.uuid()
 })
 
+export const folderIdSchemaOptional = z.object({
+    folder_id: z.uuid().optional()
+})
+
 export const nameSchema = z.object({
     name: z.string().min(1)
 })
