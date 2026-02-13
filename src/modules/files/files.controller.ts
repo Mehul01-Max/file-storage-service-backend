@@ -60,13 +60,23 @@ export const deleteFile = async (req: Request, res: Response, next: NextFunction
 
 export const moveFile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { file_id, new_folder_id } = req.params;
-        if (typeof file_id !== "string" || typeof new_folder_id !== "string") {
+        const { file_id } = req.params;
+        const { new_folder_id } = req.body;
+        if (typeof file_id !== "string") {
             throw new ApiError(400, "file_id should be of type uuid");
         }
         const result = await fileService.moveFile(req.userId!, file_id, new_folder_id);
         return successReponse(res, "file moved successfully", result, 200);
     } catch (err) {
         next(err)
+    }
+}
+
+export const getRootFiles = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await fileService.getRootFiles(req.userId!);
+        return successReponse(res, "success", result, 200);
+    } catch (err) {
+        next(err);
     }
 }

@@ -65,9 +65,10 @@ export const deleteFolder = async (req: Request, res: Response, next: NextFuncti
 
 export const moveFolder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { folder_id, new_parent_id } = req.params;
-        if (folder_id !== 'string' || new_parent_id !== 'string') {
-            throw new ApiError(400, "folder id and new parent id should be uuid");
+        const { folder_id } = req.params;
+        const { new_parent_id } = req.body;
+        if (typeof folder_id !== 'string') {
+            throw new ApiError(400, "folder id should be uuid");
         }
         const result = await folderService.moveFolder(req.userId!, folder_id, new_parent_id);
         return successReponse(res, "file moved successfully", result, 200);

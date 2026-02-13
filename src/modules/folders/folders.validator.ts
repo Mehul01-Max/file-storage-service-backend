@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const createFolderSchema = z.object({
     name: z.string().min(1),
-    user_id: z.uuid(),
     parent_id: z.uuid().optional()
 })
 
@@ -16,5 +15,9 @@ export const nameSchema = z.object({
 
 export const moveSchema = z.object({
     folder_id: z.uuid(),
+    
+})
+
+export const moveSchemaBody = z.object({
     new_parent_id: z.uuid().optional()
 })

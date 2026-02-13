@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "FileStatus" AS ENUM ('UPLOADING', 'UPLOADED', 'FAILED');
+CREATE TYPE "FileStatus" AS ENUM ('UPLOADING', 'UPLOADED', 'FAILED', 'DELETED');
 
 -- CreateEnum
 CREATE TYPE "Permission" AS ENUM ('READ', 'WRITE');
@@ -22,7 +22,6 @@ CREATE TABLE "Files" (
     "storage_key" TEXT NOT NULL,
     "mime_type" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
-    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
     "uploaded_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "user_id" TEXT NOT NULL,
     "fileStatus" "FileStatus" NOT NULL DEFAULT 'UPLOADING',
@@ -37,7 +36,8 @@ CREATE TABLE "Folders" (
     "name" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "user_id" TEXT NOT NULL,
-    "parent_folder_id" TEXT,
+    "parent_id" TEXT,
+    "is_deleted" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Folders_pkey" PRIMARY KEY ("id")
 );
@@ -77,7 +77,7 @@ ALTER TABLE "Files" ADD CONSTRAINT "Files_folder_id_fkey" FOREIGN KEY ("folder_i
 ALTER TABLE "Folders" ADD CONSTRAINT "Folders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Folders" ADD CONSTRAINT "Folders_parent_folder_id_fkey" FOREIGN KEY ("parent_folder_id") REFERENCES "Folders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Folders" ADD CONSTRAINT "Folders_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "Folders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "File_Versions" ADD CONSTRAINT "File_Versions_file_id_fkey" FOREIGN KEY ("file_id") REFERENCES "Files"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

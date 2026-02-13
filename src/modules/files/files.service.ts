@@ -7,8 +7,15 @@ import { s3 } from '../../storage/s3.client.js';
 
 export const initUpload = async (user_id: string, original_name: string, mime_type: string, size: number, folder_id?: string) => {
     try {
+        if (folder_id) {
+            const folder = await prisma.folders.findFirst({
+                where: {id: folder_id, user_id, is_deleted: false}
+            })
+            if (!folder){
+                throw new ApiError(404, "folder not found");
+            }
+        }
         const storage_key = `user-${user_id}/${Date.now()}-${crypto.randomUUID()}`
-
         const file = await prisma.files.create({
             data: {
                 original_name,
@@ -106,17 +113,28 @@ export const getFiles = async (user_id: string) => {
     }
 }
 
+export const getRootFiles = async (user_id: string) => {
+    try {
+        const file = await prisma.files.findMany({
+            where: { user_id, fileStatus: "UPLOADED", folder_id: null},
+        })
+        return {
+            file
+        }
+    } catch (err) {
+        throw err
+    }
+}
+
 export const deleteFile = async (user_id: string, file_id: string) => {
     try {
-        const file = await prisma.files.findUnique({
-            where: {id: file_id}
+        const file = await prisma.files.findFirst({
+            where: {id: file_id, user_id}
         })
-        if (!file || file.fileStatus == "FAILED" || file.fileStatus == "DELETED") {
+        if (!file || file.fileStatus === "FAILED" || file.fileStatus === "DELETED") {
             throw new ApiError(404, "file not found");
         }
-        if (file.user_id != user_id) {
-            throw new ApiError(400, "not an owner");
-        }
+
         if (file.fileStatus == "UPLOADING") {
             throw new ApiError(400, "file not ready for delete");
         }
@@ -135,9 +153,9 @@ export const moveFile = async (user_id: string, file_id: string, new_folder_id?:
     const file = await prisma.files.findFirst({
         where: {id: file_id, user_id}
     })
-    if (!file) {
-        throw new ApiError(404, "file not found");
-    }
+    if (!file || file.fileStatus === "FAILED" || file.fileStatus === "DELETED") {
+            throw new ApiError(404, "file not found");
+        }
     if (new_folder_id) {
         const folder_id = await prisma.folders.findFirst({
             where: {id: new_folder_id, user_id}

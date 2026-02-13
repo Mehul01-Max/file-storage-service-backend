@@ -17,5 +17,9 @@ export const fileDownloadSchema = z.object({
 
 export const moveFileSchema = z.object({
     file_id: z.uuid(),
+
+})
+
+export const moveFileSchemaBody = z.object({
     new_folder_id: z.uuid().optional()
 })

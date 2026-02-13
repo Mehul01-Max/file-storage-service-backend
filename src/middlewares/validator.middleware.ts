@@ -13,7 +13,6 @@ const validate = (schema: ZodType, target:  validationTarget = validationTarget.
         try {
             const data = req[target];
             const result = schema.safeParse(data);
-            console.log(req);
             if (!result.success) {
                 const errors = result.error.issues.map((issue) => {
                     return {path: issue.path.join('.'), message: issue.message}
