@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  password_hash String
-  name          String
-  created_at    DateTime       @default(now())
-  files         Files[]
-  folders       Folders[]
-  sharedFiles   Shared_Files[] @relation("SharedWithUser")
+  id                    String           @id @default(uuid())
+  email                 String           @unique
+  password_hash         String
+  name                  String
+  created_at            DateTime         @default(now())
+  files                 Files[]
+  folders               Folders[]
+  sharedFilesWithUser   Shared_Files[]   @relation("SharedWithUser")
+  sharedFilesByUser     Shared_Files[]   @relation("SharedBy")
+  sharedFoldersByUser   Shared_Folders[] @relation("FolderSharedBy")
+  sharedFoldersWithUser Shared_Folders[] @relation("FolderSharedWith")
 }
 
 enum FileStatus {
@@ -42,16 +45,17 @@ model Files {
 }
 
 model Folders {
-  id         String    @id @default(uuid())
-  name       String
-  created_at DateTime  @default(now())
-  user_id    String
-  user       User      @relation(fields: [user_id], references: [id])
-  parent_id  String?
-  parent     Folders?  @relation("FolderHierarchy", fields: [parent_id], references: [id])
-  children   Folders[] @relation("FolderHierarchy")
-  files      Files[]   @relation("FilesWithInFolder")
-  is_deleted Boolean   @default(false)
+  id            String           @id @default(uuid())
+  name          String
+  created_at    DateTime         @default(now())
+  user_id       String
+  user          User             @relation(fields: [user_id], references: [id])
+  parent_id     String?
+  parent        Folders?         @relation("FolderHierarchy", fields: [parent_id], references: [id])
+  children      Folders[]        @relation("FolderHierarchy")
+  files         Files[]          @relation("FilesWithInFolder")
+  is_deleted    Boolean          @default(false)
+  sharedFolders Shared_Folders[]
 }
 
 model File_Versions {
@@ -63,17 +67,31 @@ model File_Versions {
   created_at     DateTime @default(now())
 }
 
-enum Permission {
-  READ
-  WRITE
+model Shared_Files {
+  id           String   @id @default(uuid())
+  file_id      String
+  shared_by    String
+  shared_with  String
+  created_at   DateTime @default(now())
+  revoked      Boolean  @default(false)
+  file         Files    @relation(fields: [file_id], references: [id])
+  sharedByUser User     @relation("SharedBy", fields: [shared_by], references: [id])
+  sharedWith   User     @relation("SharedWithUser", fields: [shared_with], references: [id])
+
+  @@unique([file_id, shared_with])
 }
 
-model Shared_Files {
-  id               String     @id @default(uuid())
-  expires_at       DateTime   @default(now())
-  file_id          String
-  file             Files      @relation(fields: [file_id], references: [id])
-  user_id          String
-  shared_with_user User       @relation("SharedWithUser", fields: [user_id], references: [id])
-  permission       Permission
+model Shared_Folders {
+  id          String   @id @default(uuid())
+  folder_id   String
+  shared_by   String
+  shared_with String
+  revoked     Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  folder       Folders @relation(fields: [folder_id], references: [id])
+  sharedByUser User    @relation("FolderSharedBy", fields: [shared_by], references: [id])
+  sharedWith   User    @relation("FolderSharedWith", fields: [shared_with], references: [id])
+
+  @@unique([folder_id, shared_with])
 }

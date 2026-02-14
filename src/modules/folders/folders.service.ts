@@ -1,8 +1,7 @@
 import { prisma } from "../../config/prisma.js"
 import ApiError from "../../utils/ApiError.js"
 import checkForCycle from "../../utils/checkforCycle.js";
-import { deleteFile } from "../files/files.service.js";
-
+import { hasFolderAccess } from "../../utils/helper.js";
 
 export const createFolder = async (name: string, user_id: string, parent_id?: string) => {
     if (parent_id) {
@@ -46,23 +45,19 @@ export const getFolder = async (user_id: string, folder_id: string | undefined) 
             files: files
         };
     }
-    const folder = await prisma.folders.findFirst({
-        where: {id: folder_id, user_id, is_deleted: false},
+    const folder = await prisma.folders.findUnique({
+        where: { id: folder_id },
         include: {
-            children: {
-                where: {
-                    is_deleted: false
-                }
-            },
-            files: {
-                where: {
-                    fileStatus: "UPLOADED"
-                }
-            }
+            children: { where: { is_deleted: false } },
+            files: { where: { fileStatus: "UPLOADED" } }
         }
-    })
+    });
+
     if (!folder) {
-        throw new ApiError(404, "folder not found")
+        throw new ApiError(400, "file not found");
+    }
+    if (folder.user_id !== user_id && !(await hasFolderAccess(folder_id, user_id))) {
+        throw new ApiError(403, "access denied");
     }
     return folder
 }
@@ -76,13 +71,15 @@ export const listRootFolder = async (user_id: string) => {
 
 export const renameFolder = async (user_id: string, folder_id: string, name: string) => {
     const folder = await prisma.folders.findFirst({
-        where: {user_id, id: folder_id, is_deleted: false}
+        where: {id: folder_id, is_deleted: false}
     })
 
     if (!folder) {
         throw new ApiError(404, "folder not found")
     }
-
+    if (folder.user_id !== user_id) {
+        throw new ApiError(403, "access denied")
+    }
     return await prisma.folders.update({
         where: {user_id, id: folder_id, is_deleted: false},
         data: {name}
@@ -90,30 +87,48 @@ export const renameFolder = async (user_id: string, folder_id: string, name: str
 }
 
 export const deleteFolder = async (user_id: string, folder_id: string) => {
-    const folder = await getFolder(user_id, folder_id)
 
-    
+    await prisma.$transaction(async (tx) => {
 
+        const folderIds = await tx.$queryRaw<{ id: string }[]>`
+            WITH RECURSIVE folder_tree AS (
+                SELECT id
+                FROM "Folders"
+                WHERE id = ${folder_id} AND user_id = ${user_id}
+                AND is_deleted = false
 
-    for (const file of folder.files) {
-        if (file.fileStatus === "UPLOADED") {
-            await deleteFile(user_id, file.id);
+                UNION ALL
+
+                SELECT f.id
+                FROM "Folders" f
+                INNER JOIN folder_tree ft ON f.parent_id = ft.id
+                WHERE user_id = ${user_id}
+            )
+            SELECT id FROM folder_tree;
+        `;
+        if (folderIds.length === 0) {
+            throw new ApiError(404, "Folder not found");
         }
-    }
+        const ids = folderIds.map(f => f.id);
 
+        await tx.files.updateMany({
+            where: {
+                folder_id: { in: ids },
+                user_id
+            },
+            data: { fileStatus: "DELETED" }
+        });
 
-    for (const child of folder.children) {
-        if (!child.is_deleted) {
-            await deleteFolder(user_id, child.id);
-        }
-    }
+        await tx.folders.updateMany({
+            where: {
+                id: { in: ids },
+                user_id
+            },
+            data: { is_deleted: true }
+        });
 
-    await prisma.folders.update({
-        where: { id: folder_id },
-        data: { is_deleted: true }
     });
     
-
 }
 
 export const moveFolder = async (user_id: string, folder_id: string, new_parent_id? : string) => {

@@ -4,6 +4,7 @@ import { HeadObjectCommand, NotFound } from '@aws-sdk/client-s3';
 import ApiError from '../../utils/ApiError.js';
 import { S3_BUCKET } from '../../config/env.js';
 import { s3 } from '../../storage/s3.client.js';
+import { hasFolderAccess } from '../../utils/helper.js';
 
 export const initUpload = async (user_id: string, original_name: string, mime_type: string, size: number, folder_id?: string) => {
     try {
@@ -84,8 +85,19 @@ export const download = async (user_id: string, file_id: string) => {
         if (!file || file.fileStatus == "FAILED" || file.fileStatus == "DELETED") {
             throw new ApiError(404, "file not found");
         }
-        if (file.user_id != user_id) {
-            throw new ApiError(400, "not an owner");
+        if (file.user_id !== user_id && file.folder_id ? !(await hasFolderAccess(file.folder_id, user_id)) : true) {
+            console.log("hello");
+            const share = await prisma.shared_Files.findUnique({
+                where: {
+                    file_id_shared_with: {
+                        file_id,
+                        shared_with: user_id
+                    }
+                }
+            });
+            if (!share || share.revoked) {
+                throw new ApiError(403, "forbidden")
+            }
         }
         if (file.fileStatus == "UPLOADING") {
             throw new ApiError(400, "file not ready for download");
