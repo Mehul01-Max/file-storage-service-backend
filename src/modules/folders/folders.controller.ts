@@ -76,3 +76,16 @@ export const moveFolder = async (req: Request, res: Response, next: NextFunction
         next(err);
     }
 }
+
+export const download = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { folder_id } = req.params;
+        if (typeof folder_id !== 'string') {
+            throw new ApiError(400, "folder id should be uuid");
+        }
+        const result = await folderService.download(req.userId!, folder_id);
+        return successReponse(res, "success", result, 200);
+    } catch (err) {
+        next (err);
+    }
+}

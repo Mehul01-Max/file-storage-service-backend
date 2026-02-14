@@ -2,6 +2,14 @@ import { prisma } from "../../config/prisma.js"
 import ApiError from "../../utils/ApiError.js"
 import checkForCycle from "../../utils/checkforCycle.js";
 import { hasFolderAccess } from "../../utils/helper.js";
+import { PassThrough } from "stream";
+import archiver from 'archiver'
+import { Prisma } from "../../../generated/prisma/index.js";
+import { s3 } from "../../storage/s3.client.js";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3_BUCKET } from "../../config/env.js";
+import { generateDownloadUrl } from "../../storage/s3.helpers.js";
+import { Upload } from "@aws-sdk/lib-storage";
 
 export const createFolder = async (name: string, user_id: string, parent_id?: string) => {
     if (parent_id) {
@@ -154,3 +162,94 @@ export const moveFolder = async (user_id: string, folder_id: string, new_parent_
     });
 }
 
+export const download = async (user_id: string, folder_id: string) => {
+
+    const folder = await prisma.folders.findUnique({
+        where: {id: folder_id}
+    });
+
+    if (!folder) {
+        throw new ApiError(404, "folder not found");
+    }
+
+    if (folder.user_id !== user_id && !(await hasFolderAccess(folder_id, user_id))) {
+        throw new ApiError(403, "forbidden");
+    }
+
+    const folderTree = await prisma.$queryRaw<{ id: string; path: string; }[]>`
+        WITH RECURSIVE folder_tree AS (
+            SELECT id, parent_id, name, name AS path
+            FROM "Folders"
+            WHERE id = ${folder_id}
+            AND is_deleted = false
+
+            UNION ALL
+
+            SELECT f.id, f.parent_id, f.name,
+                ft.path || '/' || f.name
+            FROM "Folders" f
+            INNER JOIN folder_tree ft ON f.parent_id = ft.id
+            WHERE f.is_deleted = false
+        )
+        SELECT id, path FROM folder_tree;
+    `;
+
+    const files = await prisma.$queryRaw<{ original_name: string, storage_key: string, folder_id: string }[]>`
+        SELECT original_name, storage_key, folder_id
+        FROM "Files"
+        WHERE folder_id IN (${Prisma.join(folderTree.map(f => f.id))})
+        AND "fileStatus" = 'UPLOADED'
+    `
+    const archive = archiver("zip", { zlib: { level: 9 }});
+    const zipStream = new PassThrough();
+    archive.pipe(zipStream);
+
+    for (const folder of folderTree) {
+        archive.append("", {
+            name:  `${folder.path}/`,
+        });
+    }
+
+    const folderMap = new Map(folderTree.map(f => [f.id, f.path]))
+
+    for (const file of files) {
+        const s3Object = await s3.send(
+            new GetObjectCommand({
+                Bucket: S3_BUCKET,
+                Key: file.storage_key
+            })
+        );
+
+        const folderPath = folderMap.get(file.folder_id);
+
+        archive.append(s3Object.Body as any, {
+            name: `${folderPath}/${file.original_name}`
+        })
+    }
+
+    
+
+    const zipKey = `temp-downloads/${user_id}/${crypto.randomUUID()}.zip`;
+
+    const upload = new Upload({
+        client: s3,
+        params: {
+            Bucket: S3_BUCKET,
+            Key: zipKey,
+            Body: zipStream,
+            ContentType: "application/zip"
+        }
+    });
+
+    const uploadPromise = upload.done();
+
+    archive.finalize();
+
+    await uploadPromise;
+
+    const signedUrl = await generateDownloadUrl(zipKey);
+
+    return {
+        download_url: signedUrl
+    };
+}
