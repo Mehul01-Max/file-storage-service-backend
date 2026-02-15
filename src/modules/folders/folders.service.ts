@@ -8,7 +8,7 @@ import { Prisma } from "../../../generated/prisma/index.js";
 import { s3 } from "../../storage/s3.client.js";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { S3_BUCKET } from "../../config/env.js";
-import { generateDownloadUrl } from "../../storage/s3.helpers.js";
+import { generateDownloadUrl, getObjectWithRetry } from "../../storage/s3.helpers.js";
 import { Upload } from "@aws-sdk/lib-storage";
 
 export const createFolder = async (name: string, user_id: string, parent_id?: string) => {
@@ -193,6 +193,21 @@ export const download = async (user_id: string, folder_id: string) => {
         )
         SELECT id, path FROM folder_tree;
     `;
+    const totalSizeResult = await prisma.files.aggregate({
+        where: {
+            folder_id: { in: folderTree.map(f => f.id) },
+            fileStatus: "UPLOADED"
+        },
+        _sum: { size: true }
+    });
+
+    const totalSize = totalSizeResult._sum.size ?? 0;
+
+    const MAX_DOWNLOAD_SIZE = 200 * 1024 * 1024;
+
+    if (totalSize > MAX_DOWNLOAD_SIZE) {
+    throw new ApiError(400, "Folder too large for direct download");
+    }
 
     const files = await prisma.$queryRaw<{ original_name: string, storage_key: string, folder_id: string }[]>`
         SELECT original_name, storage_key, folder_id
@@ -200,35 +215,10 @@ export const download = async (user_id: string, folder_id: string) => {
         WHERE folder_id IN (${Prisma.join(folderTree.map(f => f.id))})
         AND "fileStatus" = 'UPLOADED'
     `
-    const archive = archiver("zip", { zlib: { level: 9 }});
+    const archive = archiver("zip", { zlib: { level: 1 }});
     const zipStream = new PassThrough();
+
     archive.pipe(zipStream);
-
-    for (const folder of folderTree) {
-        archive.append("", {
-            name:  `${folder.path}/`,
-        });
-    }
-
-    const folderMap = new Map(folderTree.map(f => [f.id, f.path]))
-
-    for (const file of files) {
-        const s3Object = await s3.send(
-            new GetObjectCommand({
-                Bucket: S3_BUCKET,
-                Key: file.storage_key
-            })
-        );
-
-        const folderPath = folderMap.get(file.folder_id);
-
-        archive.append(s3Object.Body as any, {
-            name: `${folderPath}/${file.original_name}`
-        })
-    }
-
-    
-
     const zipKey = `temp-downloads/${user_id}/${crypto.randomUUID()}.zip`;
 
     const upload = new Upload({
@@ -241,15 +231,51 @@ export const download = async (user_id: string, folder_id: string) => {
         }
     });
 
-    const uploadPromise = upload.done();
+    try {
+        for (const folder of folderTree) {
+            archive.append("", {
+                name:  `${folder.path}/`,
+            });
+        }
 
-    archive.finalize();
+        const folderMap = new Map(folderTree.map(f => [f.id, f.path]))
 
-    await uploadPromise;
+        for (const file of files) {
+            const s3Object = await getObjectWithRetry(file.storage_key);
 
-    const signedUrl = await generateDownloadUrl(zipKey);
+            const folderPath = folderMap.get(file.folder_id);
+            
+            if (!folderPath) {
+                throw new ApiError(500, "Folder path resolution failed");
+            }
+            
+            archive.append(s3Object.Body as any, {
+                name: `${folderPath}/${file.original_name}`
+            })
+        }
 
-    return {
-        download_url: signedUrl
-    };
+        const uploadPromise = upload.done();
+
+        const archivePromise = new Promise<void>((resolve, reject) => {
+            archive.on("error", reject);
+            archive.on("finish", resolve);
+            zipStream.on("error", reject);
+        });
+
+        archive.finalize();
+
+        await Promise.all([uploadPromise, archivePromise]);
+        
+
+        const signedUrl = await generateDownloadUrl(zipKey);
+
+        return {
+            download_url: signedUrl
+        };
+    } catch (err) {
+        try {
+            await upload.abort();
+        } catch {}
+        throw err
+    }
 }

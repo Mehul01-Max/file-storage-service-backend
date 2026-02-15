@@ -3,7 +3,6 @@ import { S3_BUCKET } from "../config/env.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "./s3.client.js";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
-import { mime } from "zod";
 
 export const generateUploadUrl = async (key: string, mimeType: string, maxSize: number) => {
     const { url, fields } = await createPresignedPost(s3, {
@@ -38,3 +37,20 @@ export const deleteFileFromS3 = async (key: string) => {
     });
     await s3.send(command);
 }
+
+export const getObjectWithRetry = async (key: string, retries = 3): Promise<any> => {
+  try {
+    return await s3.send(
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: key
+      })
+    );
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise(res => setTimeout(res, 1000));
+      return getObjectWithRetry(key, retries - 1);
+    }
+    throw err;
+  }
+};
