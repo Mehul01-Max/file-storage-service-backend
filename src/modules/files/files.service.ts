@@ -28,7 +28,7 @@ export const initUpload = async (user_id: string, original_name: string, mime_ty
             }
         })
 
-        const upload_url = await generateUploadUrl(storage_key, mime_type);
+        const upload_url = await generateUploadUrl(storage_key, mime_type, size);
 
         return {
             file_id: file.id,

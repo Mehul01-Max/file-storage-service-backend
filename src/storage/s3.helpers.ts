@@ -2,16 +2,24 @@ import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand  } from "@aws-s
 import { S3_BUCKET } from "../config/env.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "./s3.client.js";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
+import { mime } from "zod";
 
-
-export const generateUploadUrl = async (key: string, mimeType: string) => {
-    const command = new PutObjectCommand({
+export const generateUploadUrl = async (key: string, mimeType: string, maxSize: number) => {
+    const { url, fields } = await createPresignedPost(s3, {
         Bucket: S3_BUCKET,
         Key: key,
-        ContentType: mimeType
-    });
+        Conditions: [
+            ["content-length-range", 0, maxSize],
+            ["eq", "$Content-Type", mimeType],
+            ["starts-with", "$key", key]
+        ], Fields: {
+            "Content-Type": mimeType
+        },
+        Expires: 300
+    })
 
-    return await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
+    return { url, fields };
 }
 
 export const generateDownloadUrl = async (key: string) => {
